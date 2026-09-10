@@ -58,6 +58,11 @@
     box-shadow: 0 28px 56px rgba(234,90,31,0.18);
   }
   .center-card .eyebrow{ font-size:12px; color: var(--orange); font-weight:800; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px; }
+  .center-card .hero-cover{
+    width: 140px; height:140px; border-radius: 20px; object-fit:cover;
+    margin: 0 auto 18px; display:block;
+    box-shadow: 0 14px 30px rgba(23,20,15,0.22);
+  }
   .center-card h1{
     font-family: var(--display); font-size: clamp(26px, 5vw, 40px);
     line-height:1.08; margin: 0 0 8px; text-transform:uppercase; word-break: keep-all;
@@ -112,7 +117,7 @@
     box-shadow: 0 24px 48px rgba(234,90,31,0.20);
     will-change: transform;
   }
-  .fan-center .cover{ width: 96px; height:96px; border-radius:14px; object-fit:cover; margin: 0 auto 14px; display:block; box-shadow: 0 8px 18px rgba(23,20,15,0.18); }
+  .fan-center .cover{ width: 128px; height:128px; border-radius:16px; object-fit:cover; margin: 0 auto 14px; display:block; box-shadow: 0 8px 18px rgba(23,20,15,0.18); cursor:pointer; }
   .fan-center .num{ font-family: var(--display); font-size:12px; color: var(--orange); margin-bottom:8px; }
   .fan-center .title{ font-size:17px; font-weight:800; line-height:1.25; }
   .fan-center .artist{ font-size:12px; color: var(--ink-dim); margin-top:4px; }
@@ -122,11 +127,11 @@
     background: var(--card-bg); border-radius: 16px;
     padding: 12px 14px;
     box-shadow: 0 14px 30px rgba(23,20,15,0.10);
-    width: 168px;
+    width: 196px;
     display:flex; gap:10px; align-items:center;
     will-change: transform;
   }
-  .sat .cover{ width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0; box-shadow: 0 6px 14px rgba(23,20,15,0.18); }
+  .sat .cover{ width:64px; height:64px; border-radius:12px; object-fit:cover; flex-shrink:0; box-shadow: 0 6px 14px rgba(23,20,15,0.18); cursor:pointer; }
   .sat .info{ min-width:0; }
   .sat .num{ font-family: var(--display); font-size:10px; color: var(--orange); margin-bottom:3px; }
   .sat .title{ font-size:12.5px; font-weight:700; line-height:1.25; }
@@ -202,6 +207,30 @@
   }
   .test-log{ margin-top:14px; font-family: monospace; font-size:11px; color: var(--ink-dim); white-space:pre-wrap; }
   footer{ text-align:center; padding: 10px clamp(16px,6vw,60px) 60px; font-size:12px; color: var(--ink-dim); }
+
+  /* ---- 앨범 커버 확대 라이트박스 ---- */
+  .lightbox{
+    position:fixed; inset:0; z-index:50;
+    background: rgba(23,20,15,0.72);
+    display:none; align-items:center; justify-content:center;
+    padding: 24px;
+  }
+  .lightbox.open{ display:flex; }
+  .lightbox-card{
+    background: var(--card-bg); border-radius: 22px;
+    padding: 28px; max-width: 360px; width:100%;
+    text-align:center;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+  }
+  .lightbox-card img{ width: 240px; height:240px; max-width:100%; border-radius:18px; object-fit:cover; margin: 0 auto 18px; display:block; box-shadow: 0 14px 30px rgba(23,20,15,0.25); }
+  .lightbox-card .rank{ font-family: var(--display); font-size:12px; color: var(--orange); margin-bottom:8px; }
+  .lightbox-card .title{ font-size:19px; font-weight:800; margin-bottom:6px; }
+  .lightbox-card .artist{ font-size:14px; color: var(--ink-dim); margin-bottom:20px; }
+  .lightbox-card button{
+    font-family: var(--sans); font-size:13px; font-weight:700;
+    background:transparent; border:1px solid var(--orange); color: var(--orange);
+    padding: 9px 22px; border-radius:999px; cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -216,6 +245,7 @@
     <div class="hero-glow"></div>
     <div class="center-card">
       <div class="eyebrow">Apple Music 인기차트 · KR · 종합 1위</div>
+      <img class="hero-cover" id="heroCover" src="" alt="" style="display:none;">
       <h1 id="valueText">불러오는 중…</h1>
       <div class="artist" id="unitText"></div>
       <button class="pill" id="retryBtn">다시 확인</button>
@@ -268,6 +298,16 @@
     </details>
   </div>
 
+  <div class="lightbox" id="lightbox">
+    <div class="lightbox-card">
+      <img id="lightboxCover" src="" alt="">
+      <div class="rank" id="lightboxRank"></div>
+      <div class="title" id="lightboxTitle"></div>
+      <div class="artist" id="lightboxArtist"></div>
+      <button id="lightboxClose">닫기</button>
+    </div>
+  </div>
+
   <footer>매일 바뀌는 값 하나를 정직하게 기록합니다.</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -295,9 +335,9 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-async function upsertReading({ signal_id, record_date, value, unit, source_url, source_observed_at, fetched_at }){
+async function upsertReading({ signal_id, record_date, value, unit, source_url, source_observed_at, fetched_at, artwork_url }){
   const { data, error } = await sb.from('readings').upsert(
-    { signal_id, record_date, value: String(value), unit, source_url, source_observed_at, fetched_at },
+    { signal_id, record_date, value: String(value), unit, source_url, source_observed_at, fetched_at, artwork_url },
     { onConflict: 'signal_id,record_date' }
   ).select();
   if(error) throw new Error("save_failed: " + error.message);
@@ -310,7 +350,7 @@ async function getRows(signal_id, limit = 30){
   return data || [];
 }
 
-function renderHero({ freshness, errorCode, value, unit, sourceName, sourceTime, fetchedTime, deltaText }){
+function renderHero({ freshness, errorCode, value, unit, sourceName, sourceTime, fetchedTime, deltaText, coverUrl }){
   const badge = document.getElementById('badge');
   const badgeText = document.getElementById('badgeText');
   badge.classList.remove('fresh','stale');
@@ -322,6 +362,9 @@ function renderHero({ freshness, errorCode, value, unit, sourceName, sourceTime,
   document.getElementById('sourceTime').textContent = fmtTime(sourceTime);
   document.getElementById('fetchedTime').textContent = fmtTime(fetchedTime);
   document.getElementById('deltaLine').innerHTML = deltaText;
+  const coverEl = document.getElementById('heroCover');
+  if(coverUrl){ coverEl.src = coverUrl; coverEl.style.display = 'block'; }
+  else{ coverEl.style.display = 'none'; }
 }
 
 function computeDelta(rows){
@@ -334,6 +377,24 @@ function computeDelta(rows){
   }
   return `변경됨`;
 }
+
+function bindCoverClicks(){
+  document.querySelectorAll('.fan-center .cover, .sat .cover').forEach(img => {
+    img.addEventListener('click', () => {
+      document.getElementById('lightboxCover').src = img.src;
+      document.getElementById('lightboxRank').textContent = img.dataset.rank || '';
+      document.getElementById('lightboxTitle').textContent = img.dataset.title || '';
+      document.getElementById('lightboxArtist').textContent = img.dataset.artist || '';
+      document.getElementById('lightbox').classList.add('open');
+    });
+  });
+}
+document.getElementById('lightboxClose').addEventListener('click', () => {
+  document.getElementById('lightbox').classList.remove('open');
+});
+document.getElementById('lightbox').addEventListener('click', (e) => {
+  if(e.target.id === 'lightbox') document.getElementById('lightbox').classList.remove('open');
+});
 
 function artUrl(rawUrl, size){
   if(!rawUrl) return '';
@@ -353,10 +414,10 @@ function mapToBucket(genreName){
 }
 
 function renderExtras(results){
-  // 상위 5곡: 1위는 fan-center, 2~5위는 주변 sat (앨범 커버 포함)
+  // 상위 5곡: 1위는 fan-center, 2~5위는 주변 sat (앨범 커버 포함, 클릭 시 확대)
   const top1 = results[0];
   document.getElementById('fanCenter').innerHTML = `
-    <img class="cover" src="${artUrl(top1.artworkUrl100, 300)}" alt="">
+    <img class="cover" src="${artUrl(top1.artworkUrl100, 400)}" alt="" data-title="${escapeHtml(top1.name)}" data-artist="${escapeHtml(top1.artistName)}" data-rank="1위">
     <div class="num">1위</div>
     <div class="title">${escapeHtml(top1.name)}</div>
     <div class="artist">${escapeHtml(top1.artistName)}</div>`;
@@ -367,17 +428,17 @@ function renderExtras(results){
     const s = sats[i];
     if(!s){ el.style.display='none'; continue; }
     el.innerHTML = `
-      <img class="cover" src="${artUrl(s.artworkUrl100, 120)}" alt="">
+      <img class="cover" src="${artUrl(s.artworkUrl100, 300)}" alt="" data-title="${escapeHtml(s.name)}" data-artist="${escapeHtml(s.artistName)}" data-rank="${i+2}위">
       <div class="info">
         <div class="num">${i+2}위</div>
         <div class="title">${escapeHtml(s.name)}</div>
         <div class="artist">${escapeHtml(s.artistName)}</div>
       </div>`;
   }
+  bindCoverClicks();
 
-  const top50 = results.slice(0,50);
   const byGenre = { '댄스':[], '인디':[], 'R&B/발라드':[], 'J-POP':[], 'POP':[] };
-  top50.forEach(s => {
+  results.forEach(s => {
     const rawGenres = (s.genres || []).map(g => g.name).filter(n => n && n !== 'Music');
     const primary = rawGenres[0] || '';
     const bucket = mapToBucket(primary);
@@ -388,7 +449,7 @@ function renderExtras(results){
     <div class="story-row ${idx % 2 === 0 ? 'left' : 'right'}">
       <div class="story-card">
         <h3>${escapeHtml(genre)}</h3>
-        ${songs.length ? `<ul>${songs.map(s => `<li><img class="mini-cover" src="${artUrl(s.artworkUrl100, 80)}" alt=""><div class="txt">${escapeHtml(s.name)}<div class="a">${escapeHtml(s.artistName)}</div></div></li>`).join('')}</ul>` : `<div class="a">오늘 상위 50곡 중 해당 장르 없음</div>`}
+        ${songs.length ? `<ul>${songs.map(s => `<li><img class="mini-cover" src="${artUrl(s.artworkUrl100, 80)}" alt=""><div class="txt">${escapeHtml(s.name)}<div class="a">${escapeHtml(s.artistName)}</div></div></li>`).join('')}</ul>` : `<div class="a">오늘 조회 기준 해당 장르 없음</div>`}
       </div>
     </div>`).join('');
   measureFan();
@@ -427,11 +488,13 @@ async function runLive(){
     const top1 = results[0];
     const record_date = kstDateString();
     const fetched_at = nowIso();
+    const coverUrl = artUrl(top1.artworkUrl100, 400);
 
     await upsertReading({
       signal_id: SIGNAL_ID, record_date,
       value: top1.name, unit: top1.artistName,
-      source_url: CHART_SOURCE_DISPLAY_URL, source_observed_at: updated, fetched_at
+      source_url: CHART_SOURCE_DISPLAY_URL, source_observed_at: updated, fetched_at,
+      artwork_url: coverUrl
     });
 
     const rows = await getRows(SIGNAL_ID);
@@ -439,7 +502,7 @@ async function runLive(){
       freshness:'fresh', errorCode:'none',
       value: top1.name, unit: top1.artistName,
       sourceName:'Apple Music 인기차트 (KR)', sourceTime: updated, fetchedTime: fetched_at,
-      deltaText: computeDelta(rows)
+      deltaText: computeDelta(rows), coverUrl
     });
   }catch(e){
     const code = e.code || 'schema_error';
@@ -453,7 +516,8 @@ async function runLive(){
       sourceName: last ? 'Apple Music 인기차트 (KR)' : '—',
       sourceTime: last ? last.source_observed_at : null,
       fetchedTime: nowIso(),
-      deltaText: last ? computeDelta(rows) : "이전 기록 없음"
+      deltaText: last ? computeDelta(rows) : "이전 기록 없음",
+      coverUrl: last ? last.artwork_url : null
     });
   }finally{
     document.getElementById('retryBtn').disabled = false;
