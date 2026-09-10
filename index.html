@@ -218,18 +218,22 @@
   .lightbox.open{ display:flex; }
   .lightbox-card{
     background: var(--card-bg); border-radius: 22px;
-    padding: 28px; max-width: 360px; width:100%;
-    text-align:center;
+    padding: 28px; max-width: 440px; width:100%;
     box-shadow: 0 30px 60px rgba(0,0,0,0.35);
   }
-  .lightbox-card img{ width: 240px; height:240px; max-width:100%; border-radius:18px; object-fit:cover; margin: 0 auto 18px; display:block; box-shadow: 0 14px 30px rgba(23,20,15,0.25); }
-  .lightbox-card .rank{ font-family: var(--display); font-size:12px; color: var(--orange); margin-bottom:8px; }
-  .lightbox-card .title{ font-size:19px; font-weight:800; margin-bottom:6px; }
-  .lightbox-card .artist{ font-size:14px; color: var(--ink-dim); margin-bottom:20px; }
+  .lightbox-card .lb-top{ display:flex; gap:20px; align-items:flex-start; margin-bottom: 18px; }
+  .lightbox-card img{ width: 140px; height:140px; border-radius:16px; object-fit:cover; flex-shrink:0; box-shadow: 0 14px 30px rgba(23,20,15,0.25); }
+  .lightbox-card .rank{ font-family: var(--display); font-size:11px; color: var(--orange); margin-bottom:6px; }
+  .lightbox-card .title{ font-size:19px; font-weight:800; line-height:1.25; margin-bottom:4px; }
+  .lightbox-card .artist-name{ font-size:13px; color: var(--ink-dim); }
+  .lb-table{ border-top: 1px solid var(--line); padding-top:14px; margin-bottom:20px; }
+  .lb-row{ display:flex; padding: 7px 0; font-size:13px; }
+  .lb-row .k{ width:70px; flex-shrink:0; color: var(--ink-dim); }
+  .lb-row .v{ color: var(--ink); font-weight:600; }
   .lightbox-card button{
     font-family: var(--sans); font-size:13px; font-weight:700;
     background:transparent; border:1px solid var(--orange); color: var(--orange);
-    padding: 9px 22px; border-radius:999px; cursor:pointer;
+    padding: 9px 22px; border-radius:999px; cursor:pointer; display:block; margin:0 auto;
   }
 </style>
 </head>
@@ -300,10 +304,19 @@
 
   <div class="lightbox" id="lightbox">
     <div class="lightbox-card">
-      <img id="lightboxCover" src="" alt="">
-      <div class="rank" id="lightboxRank"></div>
-      <div class="title" id="lightboxTitle"></div>
-      <div class="artist" id="lightboxArtist"></div>
+      <div class="lb-top">
+        <img id="lightboxCover" src="" alt="">
+        <div>
+          <div class="rank" id="lightboxRank"></div>
+          <div class="title" id="lightboxTitle"></div>
+          <div class="artist-name" id="lightboxArtistTop"></div>
+        </div>
+      </div>
+      <div class="lb-table">
+        <div class="lb-row"><div class="k">아티스트</div><div class="v" id="lbArtist">—</div></div>
+        <div class="lb-row"><div class="k">장르</div><div class="v" id="lbGenre">—</div></div>
+        <div class="lb-row"><div class="k">발매일</div><div class="v" id="lbRelease">—</div></div>
+      </div>
       <button id="lightboxClose">닫기</button>
     </div>
   </div>
@@ -378,13 +391,22 @@ function computeDelta(rows){
   return `변경됨`;
 }
 
+function fmtReleaseDate(iso){
+  if(!iso) return '정보 없음';
+  try{ return new Date(iso).toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' }); }
+  catch(e){ return iso; }
+}
+
 function bindCoverClicks(){
   document.querySelectorAll('.fan-center .cover, .sat .cover').forEach(img => {
     img.addEventListener('click', () => {
       document.getElementById('lightboxCover').src = img.src;
       document.getElementById('lightboxRank').textContent = img.dataset.rank || '';
       document.getElementById('lightboxTitle').textContent = img.dataset.title || '';
-      document.getElementById('lightboxArtist').textContent = img.dataset.artist || '';
+      document.getElementById('lightboxArtistTop').textContent = img.dataset.artist || '';
+      document.getElementById('lbArtist').textContent = img.dataset.artist || '—';
+      document.getElementById('lbGenre').textContent = img.dataset.genre || '정보 없음';
+      document.getElementById('lbRelease').textContent = img.dataset.release || '정보 없음';
       document.getElementById('lightbox').classList.add('open');
     });
   });
@@ -401,23 +423,14 @@ function artUrl(rawUrl, size){
   return rawUrl.replace(/\d+x\d+bb/, `${size}x${size}bb`);
 }
 
-const GENRE_BUCKETS = [
-  { key: '댄스',      match: /댄스|dance|일렉트로닉|electronic|edm/i },
-  { key: '인디',      match: /인디|indie|얼터너티브|alternative|싱어송라이터|singer/i },
-  { key: 'R&B/발라드', match: /r&b|알앤비|소울|soul|발라드|ballad/i },
-  { key: 'J-POP',     match: /j-?pop|제이팝|일본/i },
-  { key: 'POP',       match: /.*/ } // 나머지(K-POP, 힙합/랩, 록 등)는 전부 POP으로
-];
-function mapToBucket(genreName){
-  for(const b of GENRE_BUCKETS){ if(b.match.test(genreName)) return b.key; }
-  return 'POP';
-}
-
 function renderExtras(results){
   // 상위 5곡: 1위는 fan-center, 2~5위는 주변 sat (앨범 커버 포함, 클릭 시 확대)
   const top1 = results[0];
+  const top1Genre = (top1.genres && top1.genres.find(g => g.name !== 'Music'))?.name || (top1.genres?.[0]?.name) || '정보 없음';
   document.getElementById('fanCenter').innerHTML = `
-    <img class="cover" src="${artUrl(top1.artworkUrl100, 400)}" alt="" data-title="${escapeHtml(top1.name)}" data-artist="${escapeHtml(top1.artistName)}" data-rank="1위">
+    <img class="cover" src="${artUrl(top1.artworkUrl100, 400)}" alt=""
+      data-title="${escapeHtml(top1.name)}" data-artist="${escapeHtml(top1.artistName)}"
+      data-rank="1위" data-genre="${escapeHtml(top1Genre)}" data-release="${escapeHtml(fmtReleaseDate(top1.releaseDate))}">
     <div class="num">1위</div>
     <div class="title">${escapeHtml(top1.name)}</div>
     <div class="artist">${escapeHtml(top1.artistName)}</div>`;
@@ -427,8 +440,11 @@ function renderExtras(results){
     const el = document.getElementById('sat'+(i+1));
     const s = sats[i];
     if(!s){ el.style.display='none'; continue; }
+    const sGenre = (s.genres && s.genres.find(g => g.name !== 'Music'))?.name || (s.genres?.[0]?.name) || '정보 없음';
     el.innerHTML = `
-      <img class="cover" src="${artUrl(s.artworkUrl100, 300)}" alt="" data-title="${escapeHtml(s.name)}" data-artist="${escapeHtml(s.artistName)}" data-rank="${i+2}위">
+      <img class="cover" src="${artUrl(s.artworkUrl100, 300)}" alt=""
+        data-title="${escapeHtml(s.name)}" data-artist="${escapeHtml(s.artistName)}"
+        data-rank="${i+2}위" data-genre="${escapeHtml(sGenre)}" data-release="${escapeHtml(fmtReleaseDate(s.releaseDate))}">
       <div class="info">
         <div class="num">${i+2}위</div>
         <div class="title">${escapeHtml(s.name)}</div>
@@ -437,12 +453,12 @@ function renderExtras(results){
   }
   bindCoverClicks();
 
-  const byGenre = { '댄스':[], '인디':[], 'R&B/발라드':[], 'J-POP':[], 'POP':[] };
+  const byGenre = {};
   results.forEach(s => {
     const rawGenres = (s.genres || []).map(g => g.name).filter(n => n && n !== 'Music');
-    const primary = rawGenres[0] || '';
-    const bucket = mapToBucket(primary);
-    if(byGenre[bucket].length < 4) byGenre[bucket].push(s);
+    const g = rawGenres[0] || '기타';
+    if(!byGenre[g]) byGenre[g] = [];
+    if(byGenre[g].length < 4) byGenre[g].push(s);
   });
   const entries = Object.entries(byGenre);
   document.getElementById('genreStory').innerHTML = entries.map(([genre, songs], idx) => `
