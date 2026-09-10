@@ -126,6 +126,7 @@
     font-family: var(--display); font-size: clamp(26px, 5vw, 40px);
     line-height:1.08; margin: 0 0 8px; text-transform:uppercase; word-break: keep-all;
   }
+  .center-card .unit-label{ font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color: var(--ink-dim); opacity:0.65; margin-bottom:2px; }
   .center-card .artist{ font-size:14px; color: var(--ink-dim); font-weight:600; margin-bottom: 20px; }
   button.pill{
     font-family: var(--sans); font-weight:700; font-size:13px;
@@ -366,6 +367,7 @@
       <div class="eyebrow">Apple Music 인기차트 · KR · 종합 1위</div>
       <img class="hero-cover" id="heroCover" src="" alt="" style="display:none;">
       <h1 id="valueText">불러오는 중…</h1>
+      <div class="unit-label">아티스트</div>
       <div class="artist" id="unitText"></div>
       <button class="pill" id="retryBtn">다시 확인</button>
     </div>
@@ -557,7 +559,7 @@ function artUrl(rawUrl, size){
 function renderExtras(results){
   // 상위 5곡: 1위는 fan-center, 2~5위는 주변 sat (앨범 커버 포함, 클릭 시 확대)
   const top1 = results[0];
-  const top1Genre = (top1.genres && top1.genres.find(g => g.name !== 'Music'))?.name || (top1.genres?.[0]?.name) || '정보 없음';
+  const top1Genre = (top1.genres && top1.genres.find(g => g.genreId !== '34'))?.name || (top1.genres?.[0]?.name) || '정보 없음';
   document.getElementById('fanCenter').innerHTML = `
     <img class="cover" src="${artUrl(top1.artworkUrl100, 400)}" alt=""
       data-title="${escapeHtml(top1.name)}" data-artist="${escapeHtml(top1.artistName)}"
@@ -571,7 +573,7 @@ function renderExtras(results){
     const el = document.getElementById('sat'+(i+1));
     const s = sats[i];
     if(!s){ el.style.display='none'; continue; }
-    const sGenre = (s.genres && s.genres.find(g => g.name !== 'Music'))?.name || (s.genres?.[0]?.name) || '정보 없음';
+    const sGenre = (s.genres && s.genres.find(g => g.genreId !== '34'))?.name || (s.genres?.[0]?.name) || '정보 없음';
     el.innerHTML = `
       <img class="cover" src="${artUrl(s.artworkUrl100, 300)}" alt=""
         data-title="${escapeHtml(s.name)}" data-artist="${escapeHtml(s.artistName)}"
@@ -584,7 +586,7 @@ function renderExtras(results){
 
   const byGenre = {};
   results.forEach(s => {
-    const rawGenres = (s.genres || []).map(g => g.name).filter(n => n && n !== 'Music');
+    const rawGenres = (s.genres || []).filter(g => g.genreId !== '34').map(g => g.name);
     const g = rawGenres[0] || '기타';
     if(!byGenre[g]) byGenre[g] = [];
     if(byGenre[g].length < 4) byGenre[g].push(s);
