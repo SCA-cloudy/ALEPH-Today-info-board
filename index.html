@@ -284,7 +284,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const SIGNAL_ID = "apple_music_kr_top1";
 const TEST_SIGNAL_ID = "aleph-demo-index";
-const CHART_URL = "https://rss.marketingtools.apple.com/api/v2/kr/music/most-played/50/songs.json";
+const CHART_URL = "/api/chart";
+const CHART_SOURCE_DISPLAY_URL = "https://rss.marketingtools.apple.com/api/v2/kr/music/most-played/50/songs.json";
 const LIVE_TIMEOUT_MS = 8000;
 
 function kstDateString(d = new Date()){
@@ -423,7 +424,7 @@ async function runLive(){
     await upsertReading({
       signal_id: SIGNAL_ID, record_date,
       value: top1.name, unit: top1.artistName,
-      source_url: CHART_URL, source_observed_at: updated, fetched_at
+      source_url: CHART_SOURCE_DISPLAY_URL, source_observed_at: updated, fetched_at
     });
 
     const rows = await getRows(SIGNAL_ID);
