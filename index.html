@@ -184,15 +184,14 @@
   .sat{
     position:absolute; z-index:1;
     background: var(--card-bg); border-radius: 16px;
-    padding: 12px 14px;
+    padding: 14px 14px;
     box-shadow: 0 14px 30px rgba(23,20,15,0.10);
-    width: 218px;
-    display:flex; gap:10px; align-items:center;
+    width: 168px;
+    text-align:center;
     will-change: transform;
   }
-  .sat .cover{ width:78px; height:78px; border-radius:14px; object-fit:cover; flex-shrink:0; box-shadow: 0 6px 14px rgba(23,20,15,0.18); cursor:pointer; }
-  .sat .info{ min-width:0; }
-  .sat .num{ font-family: var(--display); font-size:10px; color: var(--orange); margin-bottom:3px; }
+  .sat .cover{ width:100px; height:100px; border-radius:13px; object-fit:cover; margin: 0 auto 10px; display:block; box-shadow: 0 6px 14px rgba(23,20,15,0.18); cursor:pointer; }
+  .sat .num{ font-family: var(--display); font-size:10px; color: var(--orange); margin-bottom:4px; }
   .sat .title{ font-size:12.5px; font-weight:700; line-height:1.25; }
   .sat .artist{ font-size:10.5px; color: var(--ink-dim); margin-top:2px; }
 
@@ -206,9 +205,9 @@
     .fan-wrap{ min-height:auto; }
     .watermark{ font-size: 84px; }
     .fan-glow{ width:260px; height:260px; }
-    .sat{ position:static; width:auto; margin: 10px auto; max-width: 420px; transform:none !important; }
+    .sat{ position:static; width:auto; max-width: 220px; margin: 10px auto; transform:none !important; }
     .fan-center{ transform:none !important; }
-    .sat-list{ display:flex; flex-direction:column; gap:10px; margin-top: 20px; }
+    .sat-list{ display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top: 20px; }
   }
 
   /* =========================================================
@@ -577,11 +576,9 @@ function renderExtras(results){
       <img class="cover" src="${artUrl(s.artworkUrl100, 300)}" alt=""
         data-title="${escapeHtml(s.name)}" data-artist="${escapeHtml(s.artistName)}"
         data-rank="${i+2}위" data-genre="${escapeHtml(sGenre)}" data-release="${escapeHtml(fmtReleaseDate(s.releaseDate))}">
-      <div class="info">
-        <div class="num">${i+2}위</div>
-        <div class="title">${escapeHtml(s.name)}</div>
-        <div class="artist">${escapeHtml(s.artistName)}</div>
-      </div>`;
+      <div class="num">${i+2}위</div>
+      <div class="title">${escapeHtml(s.name)}</div>
+      <div class="artist">${escapeHtml(s.artistName)}</div>`;
   }
   bindCoverClicks();
 
@@ -698,12 +695,28 @@ function measureFan(){
   }));
   const rowY = fanStarts[0].y; // 1위 카드의 세로 위치로 다같이 모임
   const centerBaseW = fanStarts[0].w; // 1위 카드의 원래(펼쳐진 상태) 폭
-  const slot = wrapWidth / fanEls.length;
+  const gap = 18;
+
+  // 목표 폭: 1위는 1.2배, 2~5위는 1위의 원래 크기와 동일
+  let widths = fanStarts.map((_, i) => i === 0 ? centerBaseW * 1.2 : centerBaseW);
+  let rowWidth = widths.reduce((a,b) => a+b, 0) + gap * (widths.length - 1);
+
+  // 화면에 다 안 들어가면 비율 유지한 채 축소 (겹치지 않게)
+  const availW = Math.min(window.innerWidth - 48, 1400);
+  if(rowWidth > availW){
+    const shrink = availW / rowWidth;
+    widths = widths.map(w => w * shrink);
+    rowWidth = availW;
+  }
+
+  const startX = wrapWidth / 2 - rowWidth / 2;
+  let cursor = startX;
+  const centers = widths.map(w => { const c = cursor + w/2; cursor += w + gap; return c; });
+
   fanEnds = fanStarts.map((s, i) => ({
-    x: slot * (i + 0.5),
+    x: centers[i],
     y: rowY,
-    // 1위: 원래 크기의 1.2배 / 2~5위: 1위의 원래 크기만큼 커짐
-    scale: i === 0 ? 1.2 : (centerBaseW / s.w)
+    scale: widths[i] / s.w
   }));
 }
 
