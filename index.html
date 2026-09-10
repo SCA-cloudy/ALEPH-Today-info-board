@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='2' y='9' width='36' height='24' rx='6' fill='%23f2ead8'/%3E%3Ccircle cx='20' cy='21' r='11' fill='%232864a6'/%3E%3Ccircle cx='20' cy='21' r='4' fill='%23f0b93c'/%3E%3Ccircle cx='20' cy='21' r='1' fill='%23f2ead8'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Playfair+Display:ital@1&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
   /* 업로드해주신 한글 폰트 — 한글 음절/자모 범위에만 적용되고, 영문·숫자는 자동으로 Fredoka로 대체됨 */
   @font-face{
@@ -156,7 +156,7 @@
   .watermark{
     position:absolute; top: 10px; left: 50%;
     transform: translateX(-50%);
-    font-family: var(--script); font-weight: 700;
+    font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 600;
     font-size: clamp(120px, 24vw, 340px);
     color: var(--watermark);
     white-space: nowrap; z-index:0; pointer-events:none; user-select:none;
@@ -178,7 +178,7 @@
   }
   .fan-center .cover{ width: 150px; height:150px; border-radius:18px; object-fit:cover; margin: 0 auto 14px; display:block; box-shadow: 0 8px 18px rgba(23,20,15,0.18); cursor:pointer; }
   .fan-center .num{ font-family: var(--display); font-size:12px; color: var(--orange); margin-bottom:8px; }
-  .fan-center .title{ font-size:17px; font-weight:800; line-height:1.25; }
+  .fan-center .title{ font-family: var(--display); font-size:17px; line-height:1.25; }
   .fan-center .artist{ font-size:12px; color: var(--ink-dim); margin-top:4px; }
 
   .sat{
@@ -192,7 +192,7 @@
   }
   .sat .cover{ width:100px; height:100px; border-radius:13px; object-fit:cover; margin: 0 auto 10px; display:block; box-shadow: 0 6px 14px rgba(23,20,15,0.18); cursor:pointer; }
   .sat .num{ font-family: var(--display); font-size:10px; color: var(--orange); margin-bottom:4px; }
-  .sat .title{ font-size:12.5px; font-weight:700; line-height:1.25; }
+  .sat .title{ font-family: var(--display); font-size:12.5px; line-height:1.25; }
   .sat .artist{ font-size:10.5px; color: var(--ink-dim); margin-top:2px; }
 
   .sat-1{ top: 10px;  left: 2%;   transform: rotate(-7deg) scale(0.94); }
@@ -282,7 +282,7 @@
   .lightbox-card .lb-top{ display:flex; gap:20px; align-items:flex-start; margin-bottom: 18px; }
   .lightbox-card img{ width: 140px; height:140px; border-radius:16px; object-fit:cover; flex-shrink:0; box-shadow: 0 14px 30px rgba(23,20,15,0.25); }
   .lightbox-card .rank{ font-family: var(--display); font-size:11px; color: var(--orange); margin-bottom:6px; }
-  .lightbox-card .title{ font-size:19px; font-weight:800; line-height:1.25; margin-bottom:4px; }
+  .lightbox-card .title{ font-family: var(--display); font-size:19px; line-height:1.25; margin-bottom:4px; }
   .lightbox-card .artist-name{ font-size:13px; color: var(--ink-dim); }
   .lb-table{ border-top: 1px solid var(--line); padding-top:14px; margin-bottom:20px; }
   .lb-row{ display:flex; padding: 7px 0; font-size:13px; }
