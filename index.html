@@ -110,14 +110,12 @@
     background: var(--card-bg); border-radius: 20px;
     padding: 24px 22px; text-align:center;
     box-shadow: 0 24px 48px rgba(234,90,31,0.20);
-    opacity:0; transform: translateY(28px) scale(0.88);
-    transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1);
+    will-change: transform;
   }
   .fan-center .cover{ width: 96px; height:96px; border-radius:14px; object-fit:cover; margin: 0 auto 14px; display:block; box-shadow: 0 8px 18px rgba(23,20,15,0.18); }
   .fan-center .num{ font-family: var(--display); font-size:12px; color: var(--orange); margin-bottom:8px; }
   .fan-center .title{ font-size:17px; font-weight:800; line-height:1.25; }
   .fan-center .artist{ font-size:12px; color: var(--ink-dim); margin-top:4px; }
-  .fan-wrap.in-view .fan-center{ opacity:1; transform: translateY(0) scale(1); }
 
   .sat{
     position:absolute; z-index:1;
@@ -126,8 +124,7 @@
     box-shadow: 0 14px 30px rgba(23,20,15,0.10);
     width: 168px;
     display:flex; gap:10px; align-items:center;
-    opacity:0;
-    transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1);
+    will-change: transform;
   }
   .sat .cover{ width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0; box-shadow: 0 6px 14px rgba(23,20,15,0.18); }
   .sat .info{ min-width:0; }
@@ -135,23 +132,18 @@
   .sat .title{ font-size:12.5px; font-weight:700; line-height:1.25; }
   .sat .artist{ font-size:10.5px; color: var(--ink-dim); margin-top:2px; }
 
-  .sat-1{ top: 10px;  left: 2%;   transform: translateY(24px) rotate(-7deg) scale(0.7); transition-delay:.05s; }
-  .sat-2{ top: 60px;  right: 0%;  transform: translateY(24px) rotate(6deg) scale(0.76); transition-delay:.15s; }
-  .sat-3{ bottom: 20px; left: -2%; transform: translateY(24px) rotate(5deg) scale(0.62); transition-delay:.25s; }
-  .sat-4{ bottom: -10px;  right: 4%; transform: translateY(24px) rotate(-5deg) scale(0.68); transition-delay:.35s; }
-
-  .fan-wrap.in-view .sat-1{ opacity:1; transform: rotate(-7deg) scale(0.94); }
-  .fan-wrap.in-view .sat-2{ opacity:1; transform: rotate(6deg) scale(1.0); }
-  .fan-wrap.in-view .sat-3{ opacity:1; transform: rotate(5deg) scale(0.86); }
-  .fan-wrap.in-view .sat-4{ opacity:1; transform: rotate(-5deg) scale(0.92); }
+  .sat-1{ top: 10px;  left: 2%;   transform: rotate(-7deg) scale(0.94); }
+  .sat-2{ top: 60px;  right: 0%;  transform: rotate(6deg) scale(1.0); }
+  .sat-3{ bottom: 20px; left: -2%; transform: rotate(5deg) scale(0.86); }
+  .sat-4{ bottom: -10px;  right: 4%; transform: rotate(-5deg) scale(0.92); }
 
   @media (max-width: 760px){
     .fan-section{ min-height:auto; }
     .fan-wrap{ min-height:auto; }
     .watermark{ font-size: 84px; }
     .fan-glow{ width:260px; height:260px; }
-    .sat{ position:static; width:auto; margin: 10px auto; max-width: 420px; transform: translateY(16px) scale(0.94) !important; }
-    .fan-wrap.in-view .sat{ transform: translateY(0) scale(1) !important; }
+    .sat{ position:static; width:auto; margin: 10px auto; max-width: 420px; transform:none !important; }
+    .fan-center{ transform:none !important; }
     .sat-list{ display:flex; flex-direction:column; gap:10px; margin-top: 20px; }
   }
 
@@ -182,7 +174,9 @@
   }
   .story-card h3{ font-size:12px; color: var(--teal); margin:0 0 8px; font-weight:800; text-transform:uppercase; }
   .story-card ul{ list-style:none; margin:0; padding:0; }
-  .story-card li{ font-size:13px; padding: 3px 0; }
+  .story-card li{ font-size:13px; padding: 6px 0; display:flex; align-items:center; gap:10px; }
+  .story-card li .mini-cover{ width:36px; height:36px; border-radius:8px; object-fit:cover; flex-shrink:0; box-shadow: 0 4px 10px rgba(23,20,15,0.15); }
+  .story-card li .txt{ min-width:0; }
   .story-card li .a{ color: var(--ink-dim); font-size:11px; }
 
   @media (max-width: 640px){
@@ -346,6 +340,18 @@ function artUrl(rawUrl, size){
   return rawUrl.replace(/\d+x\d+bb/, `${size}x${size}bb`);
 }
 
+const GENRE_BUCKETS = [
+  { key: '댄스',      match: /댄스|dance|일렉트로닉|electronic|edm/i },
+  { key: '인디',      match: /인디|indie|얼터너티브|alternative|싱어송라이터|singer/i },
+  { key: 'R&B/발라드', match: /r&b|알앤비|소울|soul|발라드|ballad/i },
+  { key: 'J-POP',     match: /j-?pop|제이팝|일본/i },
+  { key: 'POP',       match: /.*/ } // 나머지(K-POP, 힙합/랩, 록 등)는 전부 POP으로
+];
+function mapToBucket(genreName){
+  for(const b of GENRE_BUCKETS){ if(b.match.test(genreName)) return b.key; }
+  return 'POP';
+}
+
 function renderExtras(results){
   // 상위 5곡: 1위는 fan-center, 2~5위는 주변 sat (앨범 커버 포함)
   const top1 = results[0];
@@ -370,21 +376,22 @@ function renderExtras(results){
   }
 
   const top50 = results.slice(0,50);
-  const byGenre = {};
+  const byGenre = { '댄스':[], '인디':[], 'R&B/발라드':[], 'J-POP':[], 'POP':[] };
   top50.forEach(s => {
-    const genres = (s.genres || []).map(g => g.name).filter(n => n && n !== 'Music');
-    const g = genres[0] || '기타';
-    if(!byGenre[g]) byGenre[g] = [];
-    if(byGenre[g].length < 4) byGenre[g].push(s);
+    const rawGenres = (s.genres || []).map(g => g.name).filter(n => n && n !== 'Music');
+    const primary = rawGenres[0] || '';
+    const bucket = mapToBucket(primary);
+    if(byGenre[bucket].length < 4) byGenre[bucket].push(s);
   });
   const entries = Object.entries(byGenre);
   document.getElementById('genreStory').innerHTML = entries.map(([genre, songs], idx) => `
     <div class="story-row ${idx % 2 === 0 ? 'left' : 'right'}">
       <div class="story-card">
         <h3>${escapeHtml(genre)}</h3>
-        <ul>${songs.map(s => `<li>${escapeHtml(s.name)}<div class="a">${escapeHtml(s.artistName)}</div></li>`).join('')}</ul>
+        ${songs.length ? `<ul>${songs.map(s => `<li><img class="mini-cover" src="${artUrl(s.artworkUrl100, 80)}" alt=""><div class="txt">${escapeHtml(s.name)}<div class="a">${escapeHtml(s.artistName)}</div></div></li>`).join('')}</ul>` : `<div class="a">오늘 상위 50곡 중 해당 장르 없음</div>`}
       </div>
     </div>`).join('');
+  measureFan();
 }
 
 async function fetchLive(){
@@ -455,17 +462,58 @@ async function runLive(){
 document.getElementById('retryBtn').addEventListener('click', runLive);
 runLive();
 
-/* 스크롤로 "상위 5곡" 섹션이 화면에 들어오면 부채꼴 카드들이 제자리로 펼쳐짐 */
+/* =========================================================
+   스크롤 연동: "상위 5곡" 섹션을 스크롤하는 동안
+   흩어진 카드들이 실시간으로 한 줄로 모여 정렬됨
+   ========================================================= */
 const fanWrapEl = document.querySelector('.fan-wrap');
-const fanObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if(entry.isIntersecting){
-      fanWrapEl.classList.add('in-view');
-      fanObserver.unobserve(entry.target);
-    }
+const fanEls = [
+  { el: document.getElementById('fanCenter'), rotate: 0 },
+  { el: document.getElementById('sat1'), rotate: -7 },
+  { el: document.getElementById('sat2'), rotate: 6 },
+  { el: document.getElementById('sat3'), rotate: 5 },
+  { el: document.getElementById('sat4'), rotate: -5 },
+];
+let fanStarts = [], fanEnds = [];
+
+function measureFan(){
+  if(window.innerWidth <= 760) return; // 모바일은 세로 스택, 스크롤 연동 없음
+  const wrapWidth = fanWrapEl.offsetWidth;
+  fanStarts = fanEls.map(({el}) => ({
+    x: el.offsetLeft + el.offsetWidth / 2,
+    y: el.offsetTop + el.offsetHeight / 2,
+    w: el.offsetWidth
+  }));
+  const rowY = fanStarts[0].y; // 1위 카드의 세로 위치로 다같이 모임
+  const targetW = Math.min(140, wrapWidth * 0.16);
+  const slot = wrapWidth / fanEls.length;
+  fanEnds = fanStarts.map((s, i) => ({
+    x: slot * (i + 0.5),
+    y: rowY,
+    scale: targetW / s.w
+  }));
+}
+
+function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+function updateFanScroll(){
+  if(window.innerWidth <= 760 || fanStarts.length === 0) return;
+  const rect = fanWrapEl.getBoundingClientRect();
+  const vh = window.innerHeight;
+  // 섹션이 화면 85% 지점에서 들어오기 시작해 화면 상단 근처에서 완전히 모임
+  const p = clamp((vh * 0.85 - rect.top) / (vh * 0.65), 0, 1);
+  fanEls.forEach(({el, rotate}, i) => {
+    const s = fanStarts[i], e = fanEnds[i];
+    const dx = (e.x - s.x) * p;
+    const dy = (e.y - s.y) * p;
+    const scale = 1 + (e.scale - 1) * p;
+    const rot = rotate * (1 - p);
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg) scale(${scale})`;
   });
-}, { threshold: 0.3 });
-fanObserver.observe(fanWrapEl);
+}
+window.addEventListener('resize', measureFan);
+window.addEventListener('scroll', () => requestAnimationFrame(updateFanScroll), { passive: true });
+requestAnimationFrame(updateFanScroll);
 
 function log(msg){
   const el = document.getElementById('testLog');
