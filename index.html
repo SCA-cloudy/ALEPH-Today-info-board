@@ -147,7 +147,7 @@
   /* =========================================================
      섹션 2: 상위 5곡 — 중심축 + 부채꼴 배치 (이 섹션 안에서만)
      ========================================================= */
-  .fan-section{ position: relative; min-height: 560px; padding: 30px clamp(16px,6vw,60px) 30px; overflow: visible; }
+  .fan-section{ position: relative; min-height: 560px; padding: 30px clamp(16px,6vw,60px) 10px; overflow: visible; }
   .fan-section h2{
     position:relative; z-index:2;
     font-family: var(--display); font-size: clamp(20px,3vw,28px);
@@ -214,7 +214,7 @@
   /* =========================================================
      섹션 3: 좌우 교차 스토리 — 장르별 상위곡
      ========================================================= */
-  .story-section{ padding: 60px clamp(16px,6vw,60px) 60px; position:relative; }
+  .story-section{ padding: 24px clamp(16px,6vw,60px) 60px; position:relative; }
   .story-section h2{
     font-family: var(--display); font-size: clamp(20px,3vw,28px);
     text-align:center; margin: 0 0 50px; text-transform:uppercase;
@@ -697,12 +697,13 @@ function measureFan(){
     w: el.offsetWidth
   }));
   const rowY = fanStarts[0].y; // 1위 카드의 세로 위치로 다같이 모임
-  const targetW = Math.min(210, wrapWidth * 0.2);
+  const centerBaseW = fanStarts[0].w; // 1위 카드의 원래(펼쳐진 상태) 폭
   const slot = wrapWidth / fanEls.length;
   fanEnds = fanStarts.map((s, i) => ({
     x: slot * (i + 0.5),
     y: rowY,
-    scale: targetW / s.w
+    // 1위: 원래 크기의 1.2배 / 2~5위: 1위의 원래 크기만큼 커짐
+    scale: i === 0 ? 1.2 : (centerBaseW / s.w)
   }));
 }
 
