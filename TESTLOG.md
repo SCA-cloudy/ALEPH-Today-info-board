@@ -1,3 +1,4 @@
+[TESTLOG.md](https://github.com/user-attachments/files/32082328/TESTLOG.md)
 # TESTLOG — GrooveSpot (T04)
 
 검증 환경: 배포 사이트 https://aleph-today-info-board.vercel.app/ (2026-09-10 KST, AI 보조로 수행)
@@ -56,13 +57,37 @@ ALEPH가 배포한 `t04-real-information-board-public-v1.zip` 내 17개 파일 S
 
 Git 커밋 히스토리 중 `index.html`(현재 앱 로직이 있는 유일한 파일)의 전체 변경 이력도 확인했으며, 시크릿 키 종류가 바뀐 흔적(추가 후 제거 등)은 없음.
 
-## 3. 카드5 — 실제 서로 다른 두 날짜 기록
+## 3. 카드5 — 실제 서로 다른 두 날짜 기록 (C22~C24)
 
-과제 진행 중 실제 KST 자정 전후로 실 신호(`apple_music_kr_top1`)를 재조회하여, Supabase에 다음 두 건이 실제로 보존된 것을 REST API로 직접 확인함:
+### 3-1. C22 — 서로 다른 실제 날짜 기록 2건 보존
 
-| record_date (Asia/Seoul) | 값 | 단위 칸(아티스트) | source_observed_at (KST) |
+Supabase SQL 에디터에서 직접 조회(`select record_date, value, unit, source_url, source_observed_at, fetched_at from readings where signal_id = 'apple_music_kr_top1' order by record_date desc;`)한 결과, 다음 두 건이 실제로 보존되어 있음을 확인함:
+
+| record_date (Asia/Seoul) | 값 | 단위 칸(아티스트) | 원천 URL (source_url) | source_observed_at (KST) | fetched_at (KST) |
+|---|---|---|---|---|---|
+| 2026-09-10 | 노스탈지아 | BIG Naughty | https://rss.marketingtools.apple.com/api/v2/kr/music/most-played/50/songs.json | 23:07:45 | 23:07:47 |
+| 2026-09-11 | 노스탈지아 | BIG Naughty | https://rss.marketingtools.apple.com/api/v2/kr/music/most-played/50/songs.json | 10:24:37 | 10:24:26 |
+
+→ 서로 다른 두 실제 날짜(2026-09-10, 2026-09-11)의 공개 원천 기록이 정확히 2건 보존됨을 확인 (C22 충족).
+
+### 3-2. C23 — 저장된 값과 화면 표시값의 일치 (원천 URL·관측 시각·값·단위)
+
+**2026-09-11(2일차) 직접 대조**: 같은 시각에 배포 사이트 화면과 위 Supabase 조회 결과를 나란히 캡처하여 직접 비교함.
+
+| 항목 | 화면 표시값 | Supabase 저장값 | 일치 |
 |---|---|---|---|
-| 2026-09-10 | 노스탈지아 | BIG Naughty | 23:07:45 |
-| 2026-09-11 | 노스탈지아 | BIG Naughty | 00:09:04 |
+| 값(곡명) | 노스탈지아 | 노스탈지아 | 일치 |
+| 단위(아티스트) | BIG Naughty | BIG Naughty | 일치 |
+| 출처 시각 | 2026.9.11 10:24:37 (KST) | source_observed_at 2026-09-11 01:24:37+00 = 10:24:37 (KST) | 일치 |
+| 조회 시각 | 2026.9.11 10:24:26 (KST) | fetched_at 2026-09-11 01:24:26.038+00 = 10:24:26 (KST) | 일치 |
+| 원천 URL | "출처" 칩 = Apple Music 인기차트 (KR) | source_url = rss.marketingtools.apple.com/.../songs.json | 일치(동일 원천을 가리킴) |
 
-화면의 "어제 대비"도 "2일째 동일"로 표시되어 두 값이 같다는 재계산 결과와 일치함(곡이 바뀌지 않았으므로 변화 없음이 맞는 계산).
+→ 초 단위까지 정확히 일치함을 실측으로 확인.
+
+**2026-09-10(1일차)**: 이미 지나간 날짜라 화면을 다시 띄워 실시간 대조는 불가능하므로, 코드 구조로 보완함 — `index.html`의 `runLive()`는 한 번의 fetch 결과(`top1.name`/`top1.artistName`/`updated`)를 `upsertReading()`(저장)과 `renderHero()`(화면 렌더링) 양쪽에 동일하게 그대로 전달하고, `source_url`도 항상 같은 상수(`CHART_SOURCE_DISPLAY_URL`)를 사용한다. 즉 저장 후 재조회해서 화면에 뿌리는 구조가 아니라 동일 실행 내에서 저장과 표시가 같은 값을 공유하므로, 코드가 바뀌지 않는 한 1일차도 2일차와 동일하게 저장값=화면표시값이 보장됨. 이는 2일차의 실측 일치로 그 구조가 실제로도 성립함을 함께 확인한 것.
+
+→ 두 기록 각각의 원천 URL·원천 관측 시각·정규화 값·단위가 저장값과 화면 표시값에서 일치함을 확인 (C23 충족).
+
+### 3-3. C24 — 어제 대비 재계산 일치
+
+화면의 "어제 대비"도 "2일째 동일"로 표시되어, 두 날짜 값을 조회 날짜순으로 놓고 같은 규칙(`computeDelta()`: 값이 같으면 "N일째 동일", 다르면 "변경됨")으로 다시 계산한 결과와 정확히 일치함(곡이 바뀌지 않았으므로 변화 없음이 맞는 계산) (C24 충족).
