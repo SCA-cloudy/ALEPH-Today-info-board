@@ -267,6 +267,28 @@
   .test-log{ margin-top:14px; font-family: monospace; font-size:11px; color: var(--ink-dim); white-space:pre-wrap; }
   footer{ text-align:center; padding: 10px clamp(16px,6vw,60px) 60px; font-size:12px; color: var(--ink-dim); }
 
+  /* ---- 카드3 빠른 자동 재생 패널 ---- */
+  .quick-test{ border-top: 1px dashed var(--line); margin-top:18px; padding-top:16px; }
+  .quick-test .qt-title{ font-size:12px; font-weight:700; color: var(--ink); margin-bottom:6px; }
+  .quick-test .qt-sub{ font-size:11.5px; color: var(--ink-dim); margin-bottom:12px; }
+  .qt-buttons{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  button.qt-btn{
+    font-family: var(--sans); font-size:12px; font-weight:700; cursor:pointer;
+    background: transparent; border:1px solid var(--line); color: var(--ink);
+    padding: 7px 12px; border-radius: 999px;
+  }
+  button.qt-btn:disabled{ opacity:0.4; cursor:default; }
+  .qt-status{ border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:12.5px; background:#fbf8f2; }
+  html[data-theme="dark"] .qt-status{ background: rgba(255,255,255,0.03); }
+  .qt-status .row{ display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+  .qt-status .row .k{ color: var(--ink-dim); }
+  .qt-status .row .v{ font-family: monospace; }
+  .qt-status .row .v.stale-tag{ color: var(--stale); font-weight:700; }
+  .qt-status .row .v.fresh-tag{ color: var(--fresh); font-weight:700; }
+  .qt-match{ margin-top:10px; padding:8px 12px; border-radius:8px; font-size:12px; font-weight:700; }
+  .qt-match.ok{ background: rgba(31,92,86,0.12); color: var(--fresh); }
+  .qt-match.bad{ background: rgba(201,121,31,0.14); color: var(--stale); }
+
   /* ---- 앨범 커버 확대 라이트박스 ---- */
   .lightbox{
     position:fixed; inset:0; z-index:50;
@@ -409,6 +431,34 @@
           zip 속 fixtures/*.json 내용을 붙여넣으세요. 실제 신호(<code>apple_music_kr_top1</code>)와 분리된
           테스트 전용 signal(<code>aleph-demo-index</code>)에 저장됩니다.
         </p>
+
+        <div class="quick-test">
+          <div class="qt-title">빠른 자동 재생 — 버튼 한 번으로 재현 + 공식 fixture의 expected 값과 자동 대조</div>
+          <div class="qt-sub">각 버튼은 실제 Supabase에 기록하고, 결과를 그 fixture의 <code>expected</code> 필드와 즉시 비교해 아래에 "일치/불일치"로 표시합니다.</div>
+          <div class="qt-buttons">
+            <button class="qt-btn" id="qtNormalBtn">① 정상 순서 (D1-A→D1-B→D2)</button>
+          </div>
+          <div class="qt-buttons">
+            <button class="qt-btn" data-qtfx="TIMEOUT">② 느린 응답 (T04-TIMEOUT)</button>
+            <button class="qt-btn" data-qtfx="AUTH">401/403 거절 (T04-AUTH-401)</button>
+            <button class="qt-btn" data-qtfx="RATE">호출 제한 (T04-RATE-429)</button>
+            <button class="qt-btn" data-qtfx="OFFLINE">오프라인 (T04-OFFLINE)</button>
+            <button class="qt-btn" data-qtfx="SCHEMA">형식 변경 (T04-SCHEMA-BREAK)</button>
+          </div>
+          <div class="qt-buttons">
+            <button class="qt-btn" id="qtRecoverBtn" disabled>③ 복구 재생 (T04-RECOVER-D2, 실패 재생 후 눌러보세요)</button>
+          </div>
+          <div class="qt-status">
+            <div class="row"><span class="k">상태 (freshness)</span><span class="v" id="qtFreshness">—</span></div>
+            <div class="row"><span class="k">error_code</span><span class="v" id="qtErrorCode">—</span></div>
+            <div class="row"><span class="k">일별 기록 행 수</span><span class="v" id="qtRowCount">—</span></div>
+            <div class="row"><span class="k">저장된 값</span><span class="v" id="qtStoredValue">—</span></div>
+            <div class="row"><span class="k">전일 대비 delta</span><span class="v" id="qtDelta">—</span></div>
+          </div>
+          <div class="qt-match" id="qtMatch" style="display:none;"></div>
+        </div>
+
+        <p style="font-size:11.5px;color:var(--ink-dim);margin:18px 0 8px;">수동 재생 (공식 fixture 원문을 직접 붙여넣고 싶을 때)</p>
         <textarea id="fixtureInput" placeholder="fixture JSON 붙여넣기"></textarea>
         <div class="test-actions">
           <button class="ghost-sm" id="replayBtn">이 fixture 재생</button>
@@ -795,10 +845,178 @@ document.getElementById('replayBtn').addEventListener('click', async () => {
     log(`[${fixture.fixture_id}] 실패 재생 → stale/${e.code}, 마지막 정상값 유지=${last ? last.value : '없음'}, 행수=${rows.length}`);
   }
 });
-document.getElementById('resetTestBtn').addEventListener('click', async () => {
+async function resetTestSignal(){
   const { error } = await sb.from('readings').delete().eq('signal_id', TEST_SIGNAL_ID);
-  if(error){ log('초기화 실패: ' + error.message); return; }
+  if(error){ log('초기화 실패: ' + error.message); return false; }
   log('테스트 데이터 전체 삭제 완료 — reset 상태로 돌아옴');
+  return true;
+}
+document.getElementById('resetTestBtn').addEventListener('click', resetTestSignal);
+
+/* =========================================================
+   카드3 빠른 자동 재생 — 공식 fixture 9종을 코드에 그대로 내장하고,
+   버튼 클릭마다 실제 Supabase에 재생한 뒤 결과를 그 fixture의
+   expected 필드와 자동 대조해 화면에 표시한다.
+   (아래 payload/expected 값은 ALEPH 공개 fixture 원문과 동일함 — asset-manifest.json 해시로 검증됨)
+   ========================================================= */
+const QT_FIXTURES = {
+  D1A: {
+    fixture_id: "T04-NORMAL-D1-A",
+    transport: { mode:"http", status:200, delay_ms:20, deadline_ms:1500 },
+    payload: { signal_id:"aleph-demo-index", normalized_value:100, unit:"pt",
+      source_url:"https://fixtures.aleph.invalid/t04/demo-index",
+      source_time:"2026-08-23T23:59:00.000Z", fetched_at:"2026-08-24T00:00:00.000Z",
+      record_date:"2026-08-24" },
+    expected: { freshness:"fresh", error_code:"none", row_count:1, stored_value:100, delta:null }
+  },
+  D1B: {
+    fixture_id: "T04-NORMAL-D1-B",
+    transport: { mode:"http", status:200, delay_ms:20, deadline_ms:1500 },
+    payload: { signal_id:"aleph-demo-index", normalized_value:105, unit:"pt",
+      source_url:"https://fixtures.aleph.invalid/t04/demo-index",
+      source_time:null, fetched_at:"2026-08-24T09:00:00.000Z",
+      record_date:"2026-08-24" },
+    expected: { freshness:"fresh", error_code:"none", row_count:1, stored_value:105, delta:null }
+  },
+  D2: {
+    fixture_id: "T04-NORMAL-D2",
+    transport: { mode:"http", status:200, delay_ms:20, deadline_ms:1500 },
+    payload: { signal_id:"aleph-demo-index", normalized_value:120, unit:"pt",
+      source_url:"https://fixtures.aleph.invalid/t04/demo-index",
+      source_time:"2026-08-24T23:59:00.000Z", fetched_at:"2026-08-25T00:00:00.000Z",
+      record_date:"2026-08-25" },
+    expected: { freshness:"fresh", error_code:"none", row_count:2, stored_value:120, delta:15 }
+  },
+  TIMEOUT: {
+    fixture_id: "T04-TIMEOUT",
+    transport: { mode:"timeout", status:null, delay_ms:5000, deadline_ms:1500 },
+    payload: null,
+    expected: { freshness:"stale", error_code:"timeout", row_count:1, stored_value:105, delta:null }
+  },
+  AUTH: {
+    fixture_id: "T04-AUTH-401",
+    transport: { mode:"http", status:401, delay_ms:20, deadline_ms:1500 },
+    payload: { message:"unauthorized synthetic fixture" },
+    expected: { freshness:"stale", error_code:"auth", row_count:1, stored_value:105, delta:null }
+  },
+  RATE: {
+    fixture_id: "T04-RATE-429",
+    transport: { mode:"http", status:429, delay_ms:20, deadline_ms:1500 },
+    payload: { message:"rate limited synthetic fixture" },
+    expected: { freshness:"stale", error_code:"rate_limit", row_count:1, stored_value:105, delta:null }
+  },
+  OFFLINE: {
+    fixture_id: "T04-OFFLINE",
+    transport: { mode:"offline", status:null, delay_ms:0, deadline_ms:1500 },
+    payload: null,
+    expected: { freshness:"stale", error_code:"offline", row_count:1, stored_value:105, delta:null }
+  },
+  SCHEMA: {
+    fixture_id: "T04-SCHEMA-BREAK",
+    transport: { mode:"http", status:200, delay_ms:20, deadline_ms:1500 },
+    payload: { signal_id:"aleph-demo-index", normalized_value:"105", unit:"pt",
+      source_url:"https://fixtures.aleph.invalid/t04/demo-index",
+      source_time:null, fetched_at:"2026-08-24T10:04:00.000Z",
+      record_date:"2026-08-24" },
+    expected: { freshness:"stale", error_code:"schema_error", row_count:1, stored_value:105, delta:null }
+  },
+  RECOVER: {
+    fixture_id: "T04-RECOVER-D2",
+    transport: { mode:"http", status:200, delay_ms:20, deadline_ms:1500 },
+    payload: { signal_id:"aleph-demo-index", normalized_value:120, unit:"pt",
+      source_url:"https://fixtures.aleph.invalid/t04/demo-index",
+      source_time:"2026-08-24T23:59:00.000Z", fetched_at:"2026-08-25T00:00:00.000Z",
+      record_date:"2026-08-25" },
+    expected: { freshness:"fresh", error_code:"none", row_count:2, stored_value:120, delta:15 }
+  }
+};
+const QT_FAILURE_MAP = { TIMEOUT:"TIMEOUT", AUTH:"AUTH", RATE:"RATE", OFFLINE:"OFFLINE", SCHEMA:"SCHEMA" };
+
+function qtSetButtonsDisabled(disabled){
+  document.querySelectorAll('.qt-btn').forEach(b => { if(b.id !== 'qtRecoverBtn') b.disabled = disabled; });
+}
+
+function qtDeltaMatches(actual, expected){
+  if(expected === null || expected === undefined) return actual === null || actual === undefined;
+  if(actual === null || actual === undefined) return false;
+  return Math.abs(actual - expected) < 1e-9;
+}
+
+function qtRenderStatus({ freshness, errorCode, rowCount, storedValue, delta }){
+  document.getElementById('qtFreshness').innerHTML =
+    `<span class="${freshness === 'fresh' ? 'fresh-tag' : 'stale-tag'}">${freshness}</span>`;
+  document.getElementById('qtErrorCode').textContent = errorCode;
+  document.getElementById('qtRowCount').textContent = rowCount + '건';
+  document.getElementById('qtStoredValue').textContent = storedValue === null ? '—' : storedValue;
+  document.getElementById('qtDelta').textContent = (delta === null || delta === undefined) ? '— (비교 불가)' : (delta > 0 ? '+' : '') + delta;
+}
+
+function qtShowMatch(ok, fixtureId){
+  const el = document.getElementById('qtMatch');
+  el.style.display = 'block';
+  el.className = 'qt-match ' + (ok ? 'ok' : 'bad');
+  el.textContent = ok
+    ? `${fixtureId} — 공식 fixture의 expected 값과 정확히 일치합니다.`
+    : `${fixtureId} — 공식 fixture의 expected 값과 다릅니다. 아래 상태를 확인하세요.`;
+}
+
+async function qtRunFixtureAndCheck(fx, label){
+  let freshness, errorCode;
+  try{
+    await replayFixture(fx);
+    freshness = 'fresh'; errorCode = 'none';
+  }catch(e){
+    freshness = 'stale'; errorCode = e.code || 'schema_error';
+  }
+  const rows = await getRows(TEST_SIGNAL_ID);
+  const storedValue = rows.length ? Number(rows[0].value) : null;
+  const rowCount = rows.length;
+  const delta = rows.length >= 2 ? Number(rows[0].value) - Number(rows[1].value) : null;
+
+  qtRenderStatus({ freshness, errorCode, rowCount, storedValue, delta });
+
+  const exp = fx.expected;
+  const ok =
+    freshness === exp.freshness &&
+    errorCode === exp.error_code &&
+    rowCount === exp.row_count &&
+    storedValue === exp.stored_value &&
+    qtDeltaMatches(delta, exp.delta);
+
+  qtShowMatch(ok, fx.fixture_id);
+  log(`[${fx.fixture_id}] ${label} → ${freshness}/${errorCode}, 값=${storedValue}, 행수=${rowCount}, delta=${delta === null ? 'null' : delta} — expected 대조: ${ok ? '일치' : '불일치'}`);
+  return ok;
+}
+
+document.getElementById('qtNormalBtn').addEventListener('click', async () => {
+  qtSetButtonsDisabled(true);
+  document.getElementById('qtRecoverBtn').disabled = true;
+  await resetTestSignal();
+  await qtRunFixtureAndCheck(QT_FIXTURES.D1A, 'D1-A 재생 (새 행 1건)');
+  await qtRunFixtureAndCheck(QT_FIXTURES.D1B, 'D1-B 재생 (같은 날짜 → 행수 그대로, C20)');
+  await qtRunFixtureAndCheck(QT_FIXTURES.D2, 'D2 재생 (다음 날짜 → 행수 +1, delta +15, C21)');
+  qtSetButtonsDisabled(false);
+});
+
+document.querySelectorAll('.qt-btn[data-qtfx]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    qtSetButtonsDisabled(true);
+    document.getElementById('qtRecoverBtn').disabled = true;
+    await resetTestSignal();
+    await qtRunFixtureAndCheck(QT_FIXTURES.D1A, 'D1-A 재생 (기준선)');
+    await qtRunFixtureAndCheck(QT_FIXTURES.D1B, 'D1-B 재생 (기준선, 값 105)');
+    const key = QT_FAILURE_MAP[btn.dataset.qtfx];
+    await qtRunFixtureAndCheck(QT_FIXTURES[key], QT_FIXTURES[key].fixture_id + ' 재생');
+    qtSetButtonsDisabled(false);
+    document.getElementById('qtRecoverBtn').disabled = false;
+  });
+});
+
+document.getElementById('qtRecoverBtn').addEventListener('click', async () => {
+  qtSetButtonsDisabled(true);
+  await qtRunFixtureAndCheck(QT_FIXTURES.RECOVER, 'T04-RECOVER-D2 재생 (복구)');
+  qtSetButtonsDisabled(false);
+  document.getElementById('qtRecoverBtn').disabled = true;
 });
 </script>
 </body>
