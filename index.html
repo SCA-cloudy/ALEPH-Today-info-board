@@ -743,10 +743,23 @@ window.addEventListener('resize', measureFan);
 window.addEventListener('scroll', () => requestAnimationFrame(updateFanScroll), { passive: true });
 requestAnimationFrame(updateFanScroll);
 
+const TEST_LOG_STORAGE_KEY = 'groovespot-test-log';
 function log(msg){
   const el = document.getElementById('testLog');
-  el.textContent = `[${new Date().toLocaleTimeString('ko-KR')}] ${msg}\n` + el.textContent;
+  const line = `[${new Date().toLocaleTimeString('ko-KR')}] ${msg}`;
+  el.textContent = line + '\n' + el.textContent;
+  try{
+    const saved = JSON.parse(localStorage.getItem(TEST_LOG_STORAGE_KEY) || '[]');
+    saved.unshift(line);
+    localStorage.setItem(TEST_LOG_STORAGE_KEY, JSON.stringify(saved.slice(0, 300)));
+  }catch(e){ /* 저장소 접근 불가 시 화면 표시만 유지 */ }
 }
+(function restoreTestLog(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(TEST_LOG_STORAGE_KEY) || '[]');
+    if(saved.length) document.getElementById('testLog').textContent = saved.join('\n');
+  }catch(e){ /* 저장소 접근 불가 시 빈 로그로 시작 */ }
+})();
 async function replayFixture(fixture){
   const { transport, payload } = fixture;
   if(transport.mode === 'offline'){ const err=new Error('offline'); err.code='offline'; throw err; }
